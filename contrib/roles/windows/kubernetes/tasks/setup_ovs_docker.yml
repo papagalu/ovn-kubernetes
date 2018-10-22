@@ -36,22 +36,24 @@
       ovs-vsctl set Open_vSwitch . external_ids:k8s-api-server="http://{{ kubernetes_info.MASTER_IP }}:8080"
       ovs-vsctl set Open_vSwitch . external_ids:ovn-remote="tcp:{{ kubernetes_info.MASTER_IP }}:6642" external_ids:ovn-nb="tcp:{{ kubernetes_info.MASTER_IP }}:6641" external_ids:ovn-encap-ip={{ host_public_ip }} external_ids:ovn-encap-type="geneve"
     newline: unix
-- name: OVS Docker network setup | Make startup script Run
+
+- name: OVS Docker network setup | Make scheduled task from script
+  win_scheduled_task:
+    name: "something"
+    actions:
+    - path: powershell.exe
+      arguments: -ExecutionPolicy Unrestricted -NonInteractive -File C:\startup.ps1
+    frequency: once
+    triggers:
+    - type: boot
+
+- name: Run scheduled task
   win_shell: |
-    $RegPath = "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon"
-    # HKCU to run after the user logs in
-    $RegROPath = "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run"
+    Start-ScheduledTask -TaskName something
 
-    $script = "C:\WINDOWS\system32\WindowsPowerShell\v1.0\powershell.exe -noexit C:\startup.ps1"
-
-    Set-ItemProperty $RegPath "AutoAdminLogon" -Value "1" -type String
-    Set-ItemProperty $RegPath "DefaultUsername" -Value "{{ host_info.username }}" -type String  
-    Set-ItemProperty $RegPath "DefaultPassword" -Value "{{ host_info.password }}" -type String
-    Set-ItemProperty $RegPath "AutoLogonCount" -Value "1" -type DWord
-    Set-ItemProperty $RegROPath "OVN_Init_Node" -Value "$script" -type String
-
-- name: OVS Docker network setup | Reboot
-  win_reboot:
+- name: Pause
+  pause:
+    minutes: 1
 
 # Wait for docker to create the HNS Network and the new adapter. Connection will
 # drop shortly when doing this, wait for the connection to come back

@@ -61,22 +61,23 @@
       netsh firewall set opmode disable
     newline: unix
 
-- name: Kubernetes minion | Make minion-init startup script Run
+- name: Run init setup | Make scheduled task from script
+  win_scheduled_task:
+    name: "bleah"
+    actions:
+    - path: powershell.exe
+      arguments: -ExecutionPolicy Unrestricted -NonInteractive -File C:\startup.ps1
+    frequency: once
+    triggers:
+    - type: boot
+
+- name: Run scheduled task
   win_shell: |
-    $RegPath = "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon"
-    # HKCU to run after the user logs in
-    $RegROPath = "HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Run"
+    Start-ScheduledTask -TaskName bleah
 
-    $script = "C:\WINDOWS\system32\WindowsPowerShell\v1.0\powershell.exe -noexit C:\startup.ps1"
-
-    Set-ItemProperty $RegPath "AutoAdminLogon" -Value "1" -type String  
-    Set-ItemProperty $RegPath "DefaultUsername" -Value "{{ host_info.username }}" -type String  
-    Set-ItemProperty $RegPath "DefaultPassword" -Value "{{ host_info.password }}" -type String
-    Set-ItemProperty $RegPath "AutoLogonCount" -Value "1" -type DWord
-    Set-ItemProperty $RegROPath "OVN_Init_Node" -Value "$script" -type String
-
-- name: Kubernetes minion | Reboot
-  win_reboot:
+- name: Pause
+  pause:
+    minutes: 1
 
 - name: Kubernetes minion | Wait for minion-init script to finish
   win_shell: ping {{OVN_GATEWAY_IP}} -n 1
